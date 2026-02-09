@@ -1,0 +1,34 @@
+variable "project_id" {
+  description = "id du projet sur GCP"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Projet "
+  type        = string
+  default     = "crypto-stream-analytics"
+}
+
+variable "region" {
+  description = "Région GCP par défaut"
+  type        = string
+  default     = "europe-west1"
+}
+
+variable "zone" {
+  description = "Zone GCP par défaut"
+  type        = string
+  default     = "europe-west1-a"
+}
+
+variable "credentials_file" {
+  description = "Chemin du credentials"
+  type        = string
+  default     = "configs/credential.json"
+}
+
+variable "environment" {
+  description = "Environnement (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
