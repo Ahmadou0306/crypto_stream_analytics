@@ -28,6 +28,7 @@ gcloud services enable \
   bigquery.googleapis.com \
   logging.googleapis.com \
   monitoring.googleapis.com \
+  bigqueryconnection.googleapis.com \
   --project=${PROJECT_ID}
 
 echo "APIs activées"

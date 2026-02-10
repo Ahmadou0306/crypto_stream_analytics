@@ -1,14 +1,27 @@
-# Service Account
-resource "google_service_account" "crypto_sa" {
-  account_id   = "${var.project_name}-sa-${var.environment}"
-  display_name = "Crypto Analytics SA (${var.environment})"
+# Creation du bucket pour archivage
+resource "google_storage_bucket" "archived_bucket_function" {
+  name          = "${var.project_name}-archived_function"
+  location      = var.region
+  force_destroy = true
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = false
+  }
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    purpose     = "function-archive"
+  }
 }
 
-# Permission Storage 
-resource "google_storage_bucket_iam_member" "crypto_sa_bucket_access" {
-  bucket = google_storage_bucket.crypto_stream_bucket.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.crypto_sa.email}"
+
+# Output
+output "bucket_archived_bucket_function_name" {
+  description = "Nom du bucket d'ingestion des données "
+  value       = google_storage_bucket.archived_bucket_function.name
 }
 
 # Creation du bucket
@@ -39,19 +52,11 @@ resource "google_storage_bucket" "crypto_stream_bucket" {
 }
 
 
-# Creation du bucket pour archivage
-resource "google_storage_bucket" "archived_function" {
-  name          = "${var.project_name}-archived_function"
-  location      = var.region
-  force_destroy = true
-
-  uniform_bucket_level_access = true
-
-  versioning {
-    enabled = false
-  }
+# Output
+output "bucket_crypto_stream_bucket_name" {
+  description = "Nom du bucket d'ingestion des données "
+  value       = google_storage_bucket.crypto_stream_bucket.name
 }
-
 
 
 # Creation du bucket pour logs
@@ -85,6 +90,12 @@ resource "google_storage_bucket" "logs_bucket" {
       type = "Delete"
     }
   }
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    purpose     = "logs"
+  }
 }
 
 
@@ -94,4 +105,3 @@ output "logs_bucket_name" {
   description = "Nom du bucket de logs"
   value       = google_storage_bucket.logs_bucket.name
 }
-

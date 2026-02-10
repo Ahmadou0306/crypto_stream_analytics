@@ -4,8 +4,15 @@ variable "project_id" {
   default     = "training-gcp-484513" # à supprimer
 }
 
+variable "email_props" {
+  description = "Adresse email du proprietaire de l'a"
+  type        = string
+  default     = "ahmadou.ndiaye030602@gmail.com" # A supprimer
+}
+
+
 variable "project_name" {
-  description = "Projet "
+  description = "Nom du projet "
   type        = string
   default     = "crypto-stream-analytics"
 }
@@ -33,3 +40,4 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
