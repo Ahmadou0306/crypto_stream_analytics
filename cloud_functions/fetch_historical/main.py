@@ -3,12 +3,8 @@ import requests
 from datetime import datetime, timedelta
 from google.cloud import storage
 import time
+import io
 
-
-
-
-
-# https://crypto-stream-analytics-fetch-historical-data-1084139302044.europe-west1.run.app
 
 def fetch_all_klines(symbol, interval, start_ts, end_ts):
     all_data = []
@@ -100,8 +96,7 @@ def convert_to_dataframe(data, symbol):
     
     return df
 
-from google.cloud import storage
-import io
+
 
 def upload_dataframe_to_gcs(df, bucket_name, destination_path):
     # Initialiser le client
@@ -115,34 +110,45 @@ def upload_dataframe_to_gcs(df, bucket_name, destination_path):
     
     # Upload le contenu du buffer
     print(f"Upload vers gs://{bucket_name}/{destination_path}...")
-    blob.upload_from_string(csv_buffer.getvalue(), content_type='text/csv')
-    
+    blob.upload_from_string(
+        csv_buffer.getvalue(), 
+        content_type='text/csv',
+        timeout=300 
+    )    
     print(f"DataFrame uploadé avec succès!")
     return f"gs://{bucket_name}/{destination_path}"
 
 
 
 @functions_framework.http
-def fetch_historical_data():
+def fetch_historical_data(request):
     symbols = ["BTCUSDT", "ETHUSDT"]
     interval = "15m"
     bucket_name = "crypto-stream-analytics-data-dev"
     
+    uploaded_files = []
     
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365*5) # 5ans 
+    # Boucle sur 5 années
+    for year_offset in range(5):
+        end_date = datetime.now() - timedelta(days=365 * year_offset)
+        start_date = end_date - timedelta(days=365)
+        
+        start_ts = int(start_date.timestamp() * 1000)
+        end_ts = int(end_date.timestamp() * 1000)
+        
+        for symbol in symbols:
+            print(f"Traitement {symbol} - Année {start_date.year}...")
+            
+            data = fetch_all_klines(symbol, interval, start_ts, end_ts)
+            print(f"{symbol}: {len(data)} candles")
+            
+            df = convert_to_dataframe(data, symbol)
+            
+            # Fichier par année
+            filename = f"{symbol.lower()}-{start_date.year}.csv"
+            destination = f"historical/{symbol.lower()}/{filename}"
+            
+            gcs_path = upload_dataframe_to_gcs(df, bucket_name, destination)
+            uploaded_files.append(gcs_path)
     
-    start_ts = int(start_date.timestamp() * 1000)
-    end_ts = int(end_date.timestamp() * 1000)
-    
-    
-    for symbol in symbols:
-
-        data = fetch_all_klines(symbol, interval, start_ts, end_ts)
-        filename = f"{symbol.lower()}-{start_date.strftime("YYYYMMDD")}-{end_date.strftime("YYYYMMDD")}"
-        print(f"{symbol}: {len(data)} candles au total\n")
-        df = convert_to_dataframe(data, symbol)
-        destination = f"{symbol.lower()}/{filename}"
-        gcs_path = upload_dataframe_to_gcs(df, bucket_name, destination)
-
-        gcs_path
+    return {"status": "success", "files": uploaded_files}, 200

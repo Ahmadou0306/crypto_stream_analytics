@@ -26,7 +26,7 @@ project_id.txt
 *.lock
 *.lock*
 
-
+infrastructure/tmp
 infrastructure/configs/*
 !infrastructure/configs/.gitkeep
 infrastructure/*/*.lock*

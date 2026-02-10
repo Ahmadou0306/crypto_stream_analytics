@@ -1,6 +1,7 @@
 variable "project_id" {
   description = "id du projet sur GCP"
   type        = string
+  default     = "training-gcp-484513" # à supprimer
 }
 
 variable "project_name" {
