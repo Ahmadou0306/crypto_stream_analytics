@@ -186,10 +186,16 @@ def fetch_historical_data(request):
     """Point d'entrée de la Cloud Function avec logging complet"""
     
     start_time = datetime.now()
-    symbols = ["BTCUSDT", "ETHUSDT"]
-    interval = "15m"
+    
+    # ===== CONFIGURATION =====
+    symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+    interval = "5m"
     data_bucket = "crypto-stream-analytics-data-dev"
     logs_bucket = "crypto-stream-analytics-logs-dev"
+    
+    # Dates fixes pour l'historique (5 ans)
+    start_date = datetime(2020, 1, 1)  # 1er janvier 2020
+    end_date = datetime(2025, 1, 1)    # 1er janvier 2025
     
     uploaded_files = []
     execution_logs = {
@@ -198,6 +204,10 @@ def fetch_historical_data(request):
         "function": "fetch_historical_data",
         "symbols": symbols,
         "interval": interval,
+        "historical_period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
         "years": [],
         "summary": {}
     }
@@ -205,24 +215,28 @@ def fetch_historical_data(request):
     all_errors = []
     
     try:
-        # Boucle sur 5 années
-        for year_offset in range(5):
-            end_date = datetime.now() - timedelta(days=365 * year_offset)
-            start_date = end_date - timedelta(days=365)
+        # Boucle sur chaque année entre start_date et end_date
+        current_year = start_date.year
+        end_year = end_date.year
+        
+        while current_year < end_year:
+            year_start = datetime(current_year, 1, 1)
+            year_end = datetime(current_year + 1, 1, 1)
             
-            start_ts = int(start_date.timestamp() * 1000)
-            end_ts = int(end_date.timestamp() * 1000)
+            # Convertir en timestamps millisecondes (format Binance)
+            start_ts = int(year_start.timestamp() * 1000)
+            end_ts = int(year_end.timestamp() * 1000)
             
             year_log = {
-                "year": start_date.year,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
+                "year": current_year,
+                "start_date": year_start.isoformat(),
+                "end_date": year_end.isoformat(),
                 "symbols_processed": []
             }
             
             for symbol in symbols:
                 symbol_start = datetime.now()
-                logger.info(f"Traitement {symbol} - Année {start_date.year}...")
+                logger.info(f"Traitement {symbol} - Année {current_year}...")
                 
                 # Récupération des données
                 data, api_calls, errors = fetch_all_klines(
@@ -231,6 +245,10 @@ def fetch_historical_data(request):
                 all_errors.extend(errors)
                 
                 logger.info(f"{symbol}: {len(data)} candles récupérées")
+                
+                if len(data) == 0:
+                    logger.warning(f"{symbol} {current_year}: Aucune donnée récupérée")
+                    continue
                 
                 # Conversion en DataFrame
                 df = convert_to_dataframe(data, symbol)
@@ -244,7 +262,7 @@ def fetch_historical_data(request):
                 }
                 
                 # Upload
-                filename = f"{symbol.lower()}-{start_date.year}.csv"
+                filename = f"{symbol.lower()}-{current_year}.csv"
                 destination = f"historical/{symbol.lower()}/{filename}"
                 
                 gcs_path = upload_dataframe_to_gcs(df, data_bucket, destination)
@@ -265,9 +283,10 @@ def fetch_historical_data(request):
                 }
                 
                 year_log["symbols_processed"].append(symbol_log)
-                logger.info(f"{symbol} terminé en {symbol_elapsed:.2f}s")
+                logger.info(f"{symbol} {current_year} terminé en {symbol_elapsed:.2f}s")
             
             execution_logs["years"].append(year_log)
+            current_year += 1  # Année suivante
         
         # Fin de l'exécution
         end_time = datetime.now()
@@ -290,7 +309,7 @@ def fetch_historical_data(request):
             "total_candles": total_candles,
             "total_years": len(execution_logs["years"]),
             "total_symbols": len(symbols),
-            "avg_time_per_year": total_elapsed / len(execution_logs["years"])
+            "avg_time_per_year": total_elapsed / len(execution_logs["years"]) if execution_logs["years"] else 0
         }
         
         logger.info(f"Exécution terminée: {total_candles} candles en {total_elapsed:.2f}s")
@@ -314,6 +333,10 @@ def fetch_historical_data(request):
     return {
         "status": execution_logs["status"],
         "execution_id": execution_logs["execution_id"],
+        "period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
         "files": uploaded_files,
         "total_candles": execution_logs.get("summary", {}).get("total_candles", 0),
         "execution_time": execution_logs.get("total_execution_time_seconds", 0),

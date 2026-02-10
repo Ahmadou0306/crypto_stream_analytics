@@ -40,8 +40,16 @@ data "google_project" "current" {
 }
 
 # Permission BigQuery de lecture sur le bucket
+# Permission BigQuery de lecture sur le bucket
 resource "google_storage_bucket_iam_member" "bigquery_reader" {
   bucket = google_storage_bucket.crypto_stream_bucket.name
   role   = "roles/storage.objectViewer"
+
+  # Format correct du SA BigQuery
   member = "serviceAccount:bq-${data.google_project.current.number}@bigquery-encryption.iam.gserviceaccount.com"
+
+  # S'assurer que les tables existent avant de donner les permissions
+  depends_on = [
+    google_bigquery_table.historical_raw
+  ]
 }

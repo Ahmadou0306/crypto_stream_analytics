@@ -1,4 +1,3 @@
--- Insérer l'historique transformé dans la table finale
 INSERT INTO crypto_analytics.market_data_unified (
     timestamp,
     date,
@@ -35,7 +34,7 @@ WITH cleaned AS (
     close,
     volume,
     trades
-  FROM crypto_analytics.historical_raw
+  FROM crypto_raw.historical_raw
   WHERE 
     open IS NOT NULL
     AND close IS NOT NULL
@@ -68,7 +67,7 @@ avg_gains_losses AS (
     AVG(loss) OVER (
       PARTITION BY symbol 
       ORDER BY timestamp 
-      ROWS BETWEEN 13 PRECEDING AND CURRENT ROW -- pour 14 périodes 
+      ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
     ) AS avg_loss
   FROM gains_losses
 ),
@@ -83,41 +82,22 @@ rsi_calc AS (
   FROM avg_gains_losses
 ),
 
--- Calcul EMA 12 et EMA 26 pour MACD
-ema_calculation AS (
+-- Calcul de tous les indicateurs en une seule étape
+with_indicators AS (
   SELECT 
-    *,
-    -- EMA 12 (approximation avec moyenne pondérée)
-    AVG(close) OVER (
-      PARTITION BY symbol 
-      ORDER BY timestamp 
-      ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
-    ) AS ema_12,
+    timestamp,
+    date,
+    hour,
+    day_of_week,
+    symbol,
+    open,
+    high,
+    low,
+    close,
+    volume,
+    trades,
+    rsi_14,
     
-    -- EMA 26
-    AVG(close) OVER (
-      PARTITION BY symbol 
-      ORDER BY timestamp 
-      ROWS BETWEEN 25 PRECEDING AND CURRENT ROW
-    ) AS ema_26
-  FROM rsi_calc
-),
-
-macd_calculation AS (
-  SELECT 
-    *,
-    ema_12 - ema_26 AS macd,
-    AVG(ema_12 - ema_26) OVER (
-      PARTITION BY symbol 
-      ORDER BY timestamp 
-      ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
-    ) AS macd_signal
-  FROM ema_calculation
-)
-
-indicateur_calcule AS (
-  SELECT 
-    *,
     -- SMA 20
     AVG(close) OVER (
       PARTITION BY symbol 
@@ -125,13 +105,27 @@ indicateur_calcule AS (
       ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
     ) AS sma_20,
     
-    -- EMA 50
+    -- EMA 50 (approximation)
     AVG(close) OVER (
       PARTITION BY symbol 
       ORDER BY timestamp 
       ROWS BETWEEN 49 PRECEDING AND CURRENT ROW
     ) AS ema_50,
-        
+    
+    -- EMA 12 pour MACD
+    AVG(close) OVER (
+      PARTITION BY symbol 
+      ORDER BY timestamp 
+      ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+    ) AS ema_12,
+    
+    -- EMA 26 pour MACD
+    AVG(close) OVER (
+      PARTITION BY symbol 
+      ORDER BY timestamp 
+      ROWS BETWEEN 25 PRECEDING AND CURRENT ROW
+    ) AS ema_26,
+    
     -- Bollinger Bands
     AVG(close) OVER (
       PARTITION BY symbol 
@@ -145,7 +139,19 @@ indicateur_calcule AS (
       ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
     ) AS bb_stddev
     
-  FROM macd_calculation
+  FROM rsi_calc
+),
+
+macd_final AS (
+  SELECT 
+    *,
+    ema_12 - ema_26 AS macd,
+    AVG(ema_12 - ema_26) OVER (
+      PARTITION BY symbol 
+      ORDER BY timestamp 
+      ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
+    ) AS macd_signal
+  FROM with_indicators
 )
 
 SELECT 
@@ -160,7 +166,6 @@ SELECT
   close,
   volume,
   trades,
-
   sma_20,
   ema_50,
   rsi_14,
@@ -171,4 +176,4 @@ SELECT
   bb_middle - (2 * bb_stddev) AS bb_lower,
   'historical' AS source,
   CURRENT_TIMESTAMP() AS ingestion_timestamp
-FROM indicateur_calcule;
+FROM macd_final;

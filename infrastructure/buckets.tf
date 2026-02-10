@@ -18,6 +18,7 @@ resource "google_storage_bucket" "archived_bucket_function" {
 }
 
 
+
 # Output
 output "bucket_archived_bucket_function_name" {
   description = "Nom du bucket d'ingestion des données "

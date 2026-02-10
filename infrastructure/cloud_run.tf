@@ -40,7 +40,7 @@ resource "google_cloudfunctions2_function" "fetch_historical" {
     max_instance_count = 1
     min_instance_count = 0
     available_memory   = "1Gi"
-    timeout_seconds    = 540
+    timeout_seconds    = 3600
 
     ingress_settings               = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
