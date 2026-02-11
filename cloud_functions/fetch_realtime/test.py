@@ -1,31 +1,23 @@
-"""
-Client WebSocket pour Binance Stream API
-"""
 import json
 import time
 import threading
 from datetime import datetime
 from typing import Callable, List
 import websocket
-from logger_gcs import GCSLogger
-from publisher import PubSubPublisher
-
-
+import sys
 # client WebSocket pour écouter les candles Binance en temps réel
 class BinanceWebSocketClient:
     
     # URL WebSocket Binance
     BASE_URL = "wss://stream.binance.com:9443/ws"
     
-    def __init__(self, symbols: List[str], interval: str, gcs_logger: GCSLogger, pubsub_publisher:PubSubPublisher):
+    def __init__(self, symbols: List[str], interval: str):
         self.symbols = [s.lower() for s in symbols]
         self.interval = interval
-        self.gcs_logger = gcs_logger
         
         # Construire l'URL du stream format: btcusdt@kline_5m/ethusdt@kline_5m/...
         streams = '/'.join([f"{symbol}@kline_{interval}" for symbol in self.symbols])
         self.url = f"{self.BASE_URL}/{streams}"
-        self.pubsub_publisher = pubsub_publisher
         
         self.ws = None
         self.running = False
@@ -45,7 +37,6 @@ class BinanceWebSocketClient:
     def on_message(self, ws, message):
         try:
             data = json.loads(message)
-            # {"e": "kline", "E": 1644825360000, "s": "BTCUSDT", "k": {...}}
             
             # Mise à jour stats
             self.stats["messages_received"] += 1
@@ -53,21 +44,7 @@ class BinanceWebSocketClient:
             
             # Extraire les données de la candle
             if 'k' in data:  # Message de type kline
-                kline = data['k'] # On ne traite que les candles fermés
-                """
-                kline = {
-                    "t": 1644825000000,  # Start time
-                    "T": 1644825299999,  # Close time
-                    "s": "BTCUSDT",      # Symbol
-                    "i": "5m",           # Interval
-                    "o": "43250.50",     # Open
-                    "h": "43380.20",     # High
-                    "l": "43200.10",     # Low
-                    "c": "43350.75",     # Close
-                    "v": "125.45",       # Volume
-                    "x": true,           # Is closed?
-                }
-                """
+                kline = data['k']
                 
                 if kline['x']:  # x = True signifie candle fermée
                     kline_data = {
@@ -87,12 +64,7 @@ class BinanceWebSocketClient:
                         "taker_buy_quote": float(kline['Q'])
                     }
                     
-                    if self.pubsub_publisher:
-                        self.pubsub_publisher.publish_kline(kline_data)
-
-
                     # Logger dans GCS
-                    self.gcs_logger.log_kline(kline_data)
                     
                     self.stats["klines_processed"] += 1
                     
@@ -104,31 +76,19 @@ class BinanceWebSocketClient:
             self.stats["errors"] += 1
             error_msg = f"Erreur traitement message: {str(e)}"
             print(f"{error_msg}")
-            self.gcs_logger.log_error(error_msg, {"raw_message": message[:500]})
     
     def on_error(self, ws, error):
         self.stats["errors"] += 1
         error_msg = f"WebSocket error: {str(error)}"
         print(f"{error_msg}")
-        self.gcs_logger.log_error(error_msg)
     
     def on_close(self, ws, close_status_code, close_msg):
         print(f"WebSocket fermé - Code: {close_status_code}, Message: {close_msg}")
-        self.gcs_logger.log_connection("disconnected", {
-            "close_code": close_status_code,
-            "close_message": close_msg
-        })
+
     
-    def on_open(self, ws):
-        self.gcs_logger.log_connection("connected", {
-            "url": self.url,
-            "symbols": self.symbols,
-            "interval": self.interval
-        })
         
         # Logger stats initiales
         self.stats["start_time"] = datetime.now().isoformat()
-        self.gcs_logger.log_stats(self.stats)
     
     def start(self):
         if self.running:
@@ -143,7 +103,6 @@ class BinanceWebSocketClient:
             on_message=self.on_message,
             on_error=self.on_error,
             on_close=self.on_close,
-            on_open=self.on_open
         )
         
         # Lancer dans un thread
@@ -159,13 +118,11 @@ class BinanceWebSocketClient:
                 
                 # Si on sort de run_forever et qu'on doit continuer, attendre avant reconnexion
                 if self.running:
-                    self.gcs_logger.log_connection("reconnecting", {"wait_seconds": 5})
                     time.sleep(5)
                     
             except Exception as e:
                 error_msg = f"Erreur run_forever: {str(e)}"
                 print(f"{error_msg}")
-                self.gcs_logger.log_error(error_msg)
                 
                 if self.running:
                     time.sleep(5)
@@ -176,9 +133,36 @@ class BinanceWebSocketClient:
         if self.ws:
             self.ws.close()
         
-        # Logger stats finales
-        self.gcs_logger.log_stats(self.stats)
-        
     
     def get_stats(self) -> dict:
         return self.stats.copy()
+    
+ENVIRONMENT = "dev"
+GCS_BUCKET_LOGS = "crypto-stream-analytics-logs-dev"
+BINANCE_INTERVAL = 'kline_5m'.replace('kline_', '')
+SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT"]
+
+
+ws_client = BinanceWebSocketClient(
+    symbols=SYMBOLS,
+    interval=BINANCE_INTERVAL,
+)
+
+ws_client.start()
+try:
+    # Boucle infinie pour garder le script actif
+    while True:
+        time.sleep(10)
+        stats = ws_client.get_stats()
+        print(f"Stats: Messages={stats['messages_received']}, "
+              f"Candles={stats['klines_processed']}, "
+              f"Erreurs={stats['errors']}")
+except KeyboardInterrupt:
+    print("\n🛑 Arrêt demandé...")
+    ws_client.stop()
+    sys.exit(0)
+
+"""
+ws_client.stop()
+sys.exit(0)
+"""

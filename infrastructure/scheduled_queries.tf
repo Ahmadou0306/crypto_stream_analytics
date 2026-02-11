@@ -56,7 +56,7 @@ resource "google_bigquery_data_transfer_config" "populate_dim_hours_manual" {
   destination_dataset_id = google_bigquery_dataset.crypto_analytics.dataset_id
 
   params = {
-    query                           = file("${path.root}/../bigquery/dim_hours.sql")
+    query = file("${path.root}/../bigquery/dim_hours.sql")
   }
 
   depends_on = [google_bigquery_table.dim_hours]

@@ -10,6 +10,10 @@ resource "google_storage_bucket" "archived_bucket_function" {
     enabled = false
   }
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   labels = {
     environment = var.environment
     managed_by  = "terraform"

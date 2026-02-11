@@ -5,7 +5,7 @@ resource "google_artifact_registry_repository" "crypto_stream_rg" {
   repository_id = "crypto-stream"
   description   = "Docker images pour streaming crypto"
   format        = "DOCKER"
-  
+
   labels = {
     environment = var.environment
     managed_by  = "terraform"

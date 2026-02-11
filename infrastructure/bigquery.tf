@@ -15,6 +15,9 @@ resource "google_bigquery_table" "historical_raw" {
   dataset_id = google_bigquery_dataset.crypto_raw.dataset_id
   table_id   = "historical_raw"
 
+  deletion_protection = true
+
+
   external_data_configuration {
     autodetect    = true
     source_format = "CSV"
@@ -57,6 +60,9 @@ resource "google_bigquery_table" "dim_dates" {
   dataset_id = google_bigquery_dataset.crypto_analytics.dataset_id
   table_id   = "dim_dates"
 
+  deletion_protection = false
+
+
   schema = jsonencode([
     { name = "date", type = "DATE", mode = "REQUIRED" },
     { name = "year", type = "INT64", mode = "REQUIRED" },
@@ -75,6 +81,9 @@ resource "google_bigquery_table" "dim_hours" {
   dataset_id = google_bigquery_dataset.crypto_analytics.dataset_id
   table_id   = "dim_hours"
 
+  deletion_protection = false
+
+
   schema = jsonencode([
     { name = "hours", type = "INT64", mode = "REQUIRED" },
     { name = "hour_12", type = "INT64", mode = "REQUIRED" },
@@ -88,6 +97,9 @@ resource "google_bigquery_table" "dim_hours" {
 resource "google_bigquery_table" "dim_symboles" {
   dataset_id = google_bigquery_dataset.crypto_analytics.dataset_id
   table_id   = "dim_symboles"
+
+  deletion_protection = false
+
 
   schema = jsonencode([
     { name = "symbol", type = "STRING", mode = "REQUIRED" },
@@ -164,7 +176,3 @@ output "bigquery_tables" {
   }
   description = "Tables BigQuery créées"
 }
-
-
-
-####

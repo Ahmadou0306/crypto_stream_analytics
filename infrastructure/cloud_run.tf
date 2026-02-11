@@ -98,12 +98,26 @@ resource "google_cloud_run_v2_service" "crypto_stream_ingestion_run" {
         name  = "ENVIRONMENT"
         value = var.environment
       }
+      env {
+        name  = "GCS_BUCKET_LOGS"
+        value = "${var.project_name}-logs-${var.environment}"
+      }
+
+      env {
+        name  = "PUBSUB_TOPIC"
+        value = google_pubsub_topic.crypto_klines_raw.name
+      }
+
+      env {
+        name  = "BINANCE_STREAM_TYPE"
+        value = "kline_5m"
+      }
 
       # Ressources
       resources {
         limits = {
           cpu    = "1"
-          memory = "512Mi" 
+          memory = "512Mi"
         }
         cpu_idle = false
       }
@@ -128,15 +142,15 @@ resource "google_cloud_run_v2_service" "crypto_stream_ingestion_run" {
         }
         initial_delay_seconds = 30
         timeout_seconds       = 3
-        period_seconds        = 60  # Verifie toutes les 60 secondes
-        failure_threshold     = 3   # Redémarre après 3 échecs consécutifs
+        period_seconds        = 60 # Verifie toutes les 60 secondes
+        failure_threshold     = 3  # Redémarre après 3 échecs consécutifs
       }
     }
 
     # SCALING
     scaling {
-      min_instance_count = 1 
-      max_instance_count = 1 
+      min_instance_count = 1
+      max_instance_count = 1
     }
 
     # Timeout maximum : 1 heure
@@ -164,7 +178,8 @@ resource "google_cloud_run_v2_service" "crypto_stream_ingestion_run" {
 
   depends_on = [
     google_service_account.crypto_stream_ingestion_sa,
-    google_storage_bucket.logs_bucket
+    google_storage_bucket.logs_bucket,
+    google_pubsub_topic.crypto_klines_raw
   ]
 
   # Ignorer les changements sur l'image (sera déployée séparément)
