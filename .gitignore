@@ -1,5 +1,6 @@
 *.md
 project_id.txt
+cmd.txt
 
 venv
 */venv/
@@ -31,5 +32,6 @@ infrastructure/configs/*
 !infrastructure/configs/.gitkeep
 infrastructure/*/*.lock*
 
+cloud_functions/fetch_realtime.zip
 
 

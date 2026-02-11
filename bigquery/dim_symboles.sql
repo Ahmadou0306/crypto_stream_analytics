@@ -1,13 +1,6 @@
-INSERT INTO crypto_analytics.dim_symboles(
-    symbol,
-    symbole_libelle,
-    devise_cotation,
-    devise_cotation_nom
-)
-
 WITH symboles_distincts AS (
     SELECT DISTINCT symbol
-    FROM crypto_raw.historical_raw
+    FROM `training-gcp-484513.crypto_raw.historical_raw`
 ),
 
 symboles_enrichis AS (
@@ -25,4 +18,4 @@ symboles_enrichis AS (
 )
 
 SELECT *
-FROM symboles_enrichis;
+FROM symboles_enrichis

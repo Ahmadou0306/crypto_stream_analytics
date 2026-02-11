@@ -26,7 +26,7 @@ resource "google_bigquery_data_transfer_config" "update_dim_symboles_monthly" {
   location       = var.region
   data_source_id = "scheduled_query"
 
-  schedule = "1 of month 00:10" # Le 1er de chaque mois à 00h10
+  schedule = "1 of month 00:10"
   schedule_options {
     disable_auto_scheduling = false
   }
@@ -57,8 +57,6 @@ resource "google_bigquery_data_transfer_config" "populate_dim_hours_manual" {
 
   params = {
     query                           = file("${path.root}/../bigquery/dim_hours.sql")
-    destination_table_name_template = "dim_hours"
-    write_disposition               = "WRITE_TRUNCATE"
   }
 
   depends_on = [google_bigquery_table.dim_hours]

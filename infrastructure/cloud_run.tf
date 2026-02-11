@@ -70,4 +70,122 @@ output "function_url" {
 
 
 
+#=================================================
+# CLoud run Service - ingestion Streaming
+#=================================================
 
+resource "google_cloud_run_v2_service" "crypto_stream_ingestion_run" {
+  name     = "crypto-stream-ingestion"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    containers {
+      # Image Docker
+      image = "europe-west1-docker.pkg.dev/${var.project_id}/crypto-stream/crypto-stream-ingestion:latest"
+
+      # Port exposé
+      ports {
+        container_port = 8080
+      }
+
+      # Variables d'environnement
+      env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "ENVIRONMENT"
+        value = var.environment
+      }
+
+      # Ressources
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi" 
+        }
+        cpu_idle = false
+      }
+
+      # vérifier que le service démarre correctement
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 10
+        timeout_seconds       = 3
+        period_seconds        = 10
+        failure_threshold     = 3
+      }
+
+      # Liveness probe : vérifie que le service est toujours vivant
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 30
+        timeout_seconds       = 3
+        period_seconds        = 60  # Verifie toutes les 60 secondes
+        failure_threshold     = 3   # Redémarre après 3 échecs consécutifs
+      }
+    }
+
+    # SCALING
+    scaling {
+      min_instance_count = 1 
+      max_instance_count = 1 
+    }
+
+    # Timeout maximum : 1 heure
+    timeout = "3600s"
+
+    # Service Account
+    service_account = google_service_account.crypto_stream_ingestion_sa.email
+
+    # Labels sur les instances
+    labels = {
+      app = "crypto-stream"
+    }
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    purpose     = "websocket-ingestion"
+  }
+
+  depends_on = [
+    google_service_account.crypto_stream_ingestion_sa,
+    google_storage_bucket.logs_bucket
+  ]
+
+  # Ignorer les changements sur l'image (sera déployée séparément)
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+    ]
+  }
+}
+
+
+resource "google_cloud_run_v2_service_iam_member" "public_access" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.crypto_stream_ingestion_run.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+
+output "cloud_run_stream_url" {
+  description = "URL du service Cloud Run streaming"
+  value       = google_cloud_run_v2_service.crypto_stream_ingestion_run.uri
+}

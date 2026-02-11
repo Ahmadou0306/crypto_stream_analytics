@@ -29,6 +29,7 @@ gcloud services enable \
   logging.googleapis.com \
   monitoring.googleapis.com \
   bigqueryconnection.googleapis.com \
+  containerregistry.googleapis.com \
   --project=${PROJECT_ID}
 
 echo "APIs activées"

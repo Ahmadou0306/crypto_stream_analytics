@@ -193,9 +193,9 @@ def fetch_historical_data(request):
     data_bucket = "crypto-stream-analytics-data-dev"
     logs_bucket = "crypto-stream-analytics-logs-dev"
     
-    # Dates fixes pour l'historique (5 ans)
+    # Dates fixes pour l'historique (5 ans jusqu'à aujourd'hui)
     start_date = datetime(2020, 1, 1)  # 1er janvier 2020
-    end_date = datetime(2025, 1, 1)    # 1er janvier 2025
+    end_date = datetime.now()          # ← CHANGÉ : Aujourd'hui au lieu de 2025-01-01
     
     uploaded_files = []
     execution_logs = {
@@ -216,12 +216,17 @@ def fetch_historical_data(request):
     
     try:
         # Boucle sur chaque année entre start_date et end_date
-        current_year = start_date.year
-        end_year = end_date.year
+        current_year = start_date.year  # 2020
+        end_year = end_date.year        # 2026
         
-        while current_year < end_year:
+        while current_year <= end_year:  # ← CHANGÉ : <= au lieu de 
             year_start = datetime(current_year, 1, 1)
-            year_end = datetime(current_year + 1, 1, 1)
+            
+            # Si c'est l'année en cours, prendre jusqu'à aujourd'hui
+            if current_year == end_year:
+                year_end = end_date  # ← Jusqu'à aujourd'hui
+            else:
+                year_end = datetime(current_year + 1, 1, 1)  # Fin de l'année
             
             # Convertir en timestamps millisecondes (format Binance)
             start_ts = int(year_start.timestamp() * 1000)
@@ -286,7 +291,7 @@ def fetch_historical_data(request):
                 logger.info(f"{symbol} {current_year} terminé en {symbol_elapsed:.2f}s")
             
             execution_logs["years"].append(year_log)
-            current_year += 1  # Année suivante
+            current_year += 1
         
         # Fin de l'exécution
         end_time = datetime.now()

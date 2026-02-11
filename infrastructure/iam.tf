@@ -27,7 +27,36 @@ resource "google_storage_bucket_iam_member" "function_logs_bucket_access" {
   member = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
+#=================================================
+# CLoud run Service - ingestion Streaming
+#=================================================
+#Service account
+resource "google_service_account" "crypto_stream_ingestion_sa" {
+  account_id   = "crypto-stream-ingestion-sa"
+  display_name = "Service Account for Crypto Stream Ingestion"
+  project      = var.project_id
+}
 
+# Role de creation d'objet dans le bucket
+resource "google_storage_bucket_iam_member" "stream_logs_writer" {
+  bucket = google_storage_bucket.logs_bucket.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.crypto_stream_ingestion_sa.email}"
+}
+
+# Role de creation de lecture dans le bucket
+resource "google_storage_bucket_iam_member" "stream_logs_reader" {
+  bucket = google_storage_bucket.logs_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.crypto_stream_ingestion_sa.email}"
+}
+
+#permission d'ecrire dans cloud logging
+resource "google_project_iam_member" "stream_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.crypto_stream_ingestion_sa.email}"
+}
 #==========================================================================
 # Service Account dédié à Big Query
 #==========================================================================
@@ -53,3 +82,5 @@ resource "google_storage_bucket_iam_member" "bigquery_reader" {
     google_bigquery_table.historical_raw
   ]
 }
+
+
