@@ -42,13 +42,6 @@ resource "google_service_account" "crypto_stream_ingestion_sa" {
   project      = var.project_id
 }
 
-# Role Admin sur le bucket logs
-resource "google_storage_bucket_iam_member" "stream_logs_reader" {
-  bucket = google_storage_bucket.logs_bucket.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.crypto_stream_ingestion_sa.email}"
-}
-
 #permission d'ecrire dans cloud logging
 resource "google_project_iam_member" "stream_log_access" {
   project = var.project_id
@@ -109,12 +102,38 @@ resource "google_pubsub_subscription_iam_member" "dataflow_subscriber" {
 }
 
 
-#============================================================================
-#PERMISSIONS DATAFLOW
-#============================================================================
+#========================================
+#PERMISSIONS SINKS
+#========================================
+# Permission pour le sink Dataflow
+resource "google_storage_bucket_iam_member" "dataflow_sink_writer" {
+  bucket = google_storage_bucket.logs_bucket.name
+  role   = "roles/storage.objectCreator"
+  member = google_logging_project_sink.dataflow_logs_sink.writer_identity
+
+  depends_on = [google_logging_project_sink.dataflow_logs_sink]
+}
+
+# Permission pour le sink Cloud Run
+resource "google_storage_bucket_iam_member" "cloud_run_sink_writer" {
+  bucket = google_storage_bucket.logs_bucket.name
+  role   = "roles/storage.objectCreator"
+  member = google_logging_project_sink.cloud_run_logs_sink.writer_identity
+
+  depends_on = [google_logging_project_sink.cloud_run_logs_sink]
+}
+
+# Permission pour le sink de tous les logs
+resource "google_storage_bucket_iam_member" "all_logs_sink_writer" {
+  bucket = google_storage_bucket.logs_bucket.name
+  role   = "roles/storage.objectCreator"
+  member = google_logging_project_sink.all_logs_sink.writer_identity
+
+  depends_on = [google_logging_project_sink.all_logs_sink]
+}
 
 # ============================================================================
-# SERVICE ACCOUNT DATAFLOW
+# Permissions DATAFLOW
 # ============================================================================
 
 # Service account
@@ -123,7 +142,6 @@ resource "google_service_account" "dataflow_stream_sa" {
   display_name = "Service Account pour Dataflow Streaming"
   project      = var.project_id
 }
-
 
 # Permission Dataflow Worker
 resource "google_project_iam_member" "dataflow_worker" {
@@ -139,6 +157,13 @@ resource "google_project_iam_member" "dataflow_bigquery" {
   member  = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
 }
 
+# Permission Pub/Sub Viewer
+resource "google_project_iam_member" "dataflow_pubsub_viewer" {
+  project = var.project_id
+  role    = "roles/pubsub.viewer"
+  member  = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
+}
+
 # Permission Pub/Sub Subscriber
 resource "google_project_iam_member" "dataflow_pubsub" {
   project = var.project_id
@@ -146,17 +171,8 @@ resource "google_project_iam_member" "dataflow_pubsub" {
   member  = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
 }
 
-
-# Permission Storage sur bucket de données
-resource "google_storage_bucket_iam_member" "dataflow_storage_data" {
-  bucket = google_storage_bucket.crypto_stream_bucket.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
-}
-
-# Permission Storage sur bucket de logs
-resource "google_storage_bucket_iam_member" "dataflow_storage_logs" {
-  bucket = google_storage_bucket.logs_bucket.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
+resource "google_project_iam_member" "dataflow_storage" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.dataflow_stream_sa.email}"
 }

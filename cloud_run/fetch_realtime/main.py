@@ -3,7 +3,6 @@ import os
 import signal
 import sys
 from websocket_client import BinanceWebSocketClient
-from logger_gcs import GCSLogger
 from publisher import PubSubPublisher
 
 # Configuration depuis variables d'environnement
@@ -17,10 +16,6 @@ SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT"]
 # Initialiser Flask
 app = Flask(__name__)
 
-# Initialiser GCS Logger
-gcs_logger = GCSLogger(bucket_name=GCS_BUCKET_LOGS, project_id=PROJECT_ID)
-
-
 pubsub_publisher = PubSubPublisher(
     project_id=PROJECT_ID,
     topic_name=PUBSUB_TOPIC
@@ -31,7 +26,6 @@ pubsub_publisher = PubSubPublisher(
 ws_client = BinanceWebSocketClient(
     symbols=SYMBOLS,
     interval=BINANCE_INTERVAL,
-    gcs_logger=gcs_logger,
     pubsub_publisher=pubsub_publisher
 )
 

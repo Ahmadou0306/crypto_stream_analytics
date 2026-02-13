@@ -32,6 +32,8 @@ infrastructure/configs/*
 !infrastructure/configs/.gitkeep
 infrastructure/*/*.lock*
 
-cloud_functions/fetch_realtime.zip
-
-
+cloud_run/fetch_realtime.zip
+dataflow/dist
+dataflow/dist
+dataflow/crypto_stream_dataflow*
+dataflow/venv_clean

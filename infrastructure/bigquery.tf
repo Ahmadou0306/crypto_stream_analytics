@@ -3,7 +3,6 @@ resource "google_bigquery_dataset" "crypto_raw" {
   dataset_id  = "crypto_raw"
   location    = var.region
   description = "Crypto raw dataset pour la récupération des données brutes en temps réel"
-
   labels = {
     environment = var.environment
     managed_by  = "terraform"
@@ -15,7 +14,7 @@ resource "google_bigquery_table" "historical_raw" {
   dataset_id = google_bigquery_dataset.crypto_raw.dataset_id
   table_id   = "historical_raw"
 
-  deletion_protection = true
+  deletion_protection = false
 
 
   external_data_configuration {

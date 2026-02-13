@@ -10,9 +10,9 @@ resource "google_storage_bucket" "archived_bucket_function" {
     enabled = false
   }
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  #lifecycle {
+  #  prevent_destroy = true
+  #}
 
   labels = {
     environment = var.environment
@@ -57,6 +57,7 @@ resource "google_storage_bucket" "crypto_stream_bucket" {
 }
 
 
+
 # Output
 output "bucket_crypto_stream_bucket_name" {
   description = "Nom du bucket d'ingestion des données "
@@ -66,40 +67,50 @@ output "bucket_crypto_stream_bucket_name" {
 
 # Creation du bucket pour logs
 resource "google_storage_bucket" "logs_bucket" {
-  name          = "${var.project_name}-logs-${var.environment}"
-  location      = var.region
-  force_destroy = true
+  name     = "${var.project_name}-logs-${var.environment}"
+  location = var.region
+  # Empêcher la suppression accidentelle
+  force_destroy = false
 
-  uniform_bucket_level_access = true
-
+  # Versioning pour garder l'historique des modifications
   versioning {
-    enabled = false
+    enabled = true
   }
 
-  # Lifecycle pour gérer la rétention des logs
+  # Politique de cycle de vie pour optimiser les coûts
   lifecycle_rule {
     condition {
-      age = 30 # Garder 30 jours
+      age = 90 # Logs de plus de 90 jours
     }
     action {
       type          = "SetStorageClass"
-      storage_class = "NEARLINE"
+      storage_class = "COLDLINE" # Encore moins cher (0.004$/GB/mois)
     }
   }
 
   lifecycle_rule {
     condition {
-      age = 90 # Supprimer après 90 jours
+      age = 365 # Logs de plus de 1 an
     }
     action {
-      type = "Delete"
+      type          = "SetStorageClass"
+      storage_class = "ARCHIVE" # Le moins cher (0.0012$/GB/mois)
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 2555 # Logs de plus de 7 ans (compliance légale)
+    }
+    action {
+      type = "Delete" # Supprimer définitivement
     }
   }
 
   labels = {
     environment = var.environment
+    purpose     = "logs-archive"
     managed_by  = "terraform"
-    purpose     = "logs"
   }
 }
 
@@ -109,4 +120,50 @@ resource "google_storage_bucket" "logs_bucket" {
 output "logs_bucket_name" {
   description = "Nom du bucket de logs"
   value       = google_storage_bucket.logs_bucket.name
+}
+
+
+
+# ========================================
+# BUCKET DATAFLOW (staging/temp)
+# ========================================
+
+resource "google_storage_bucket" "dataflow_bucket" {
+  name          = "${var.project_id}-dataflow"
+  location      = var.region
+  force_destroy = false
+
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = 7 # Nettoyer les fichiers temporaires après 7 jours
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    purpose     = "dataflow-temp"
+  }
+}
+
+# Dossiers dans le bucket
+resource "google_storage_bucket_object" "dataflow_staging" {
+  name    = "staging/"
+  content = " "
+  bucket  = google_storage_bucket.dataflow_bucket.name
+}
+
+resource "google_storage_bucket_object" "dataflow_temp" {
+  name    = "temp/"
+  content = " "
+  bucket  = google_storage_bucket.dataflow_bucket.name
+}
+output "dataflow_bucket_bucket_name" {
+  description = "Nom du bucket dataflow des données "
+  value       = google_storage_bucket.dataflow_bucket.name
 }

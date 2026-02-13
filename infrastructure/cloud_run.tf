@@ -3,7 +3,7 @@
 # Archiver le code source
 data "archive_file" "function_source" {
   type        = "zip"
-  source_dir  = "${path.root}/../cloud_functions/fetch_historical"
+  source_dir  = "${path.root}/../cloud_run/fetch_historical"
   output_path = "${path.root}/.terraform/tmp/fetch_historical.zip"
 }
 
@@ -178,7 +178,6 @@ resource "google_cloud_run_v2_service" "crypto_stream_ingestion_run" {
 
   depends_on = [
     google_service_account.crypto_stream_ingestion_sa,
-    google_storage_bucket.logs_bucket,
     google_pubsub_topic.crypto_klines_raw
   ]
 
